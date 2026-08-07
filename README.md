@@ -60,20 +60,19 @@ High-fidelity SQLite/MySQL-backed backpacks plugin utilizing endstone-inventoryu
 | Endstone API | `0.11` |
 | Bedrock Dedicated Server | `1.26.40` |
 | Python | `>=3.11` |
-| Plugin release | `v1.0.87` |
+| Plugin release | `v1.0.88` |
 
 ## Install
 
-Download the wheel from the matching GitHub release:
+Download both required wheels over HTTPS:
 
-```bash
-gh release download v1.0.87 --repo TheNINJALLO/endstone-ninjos-backpacks --pattern "*.whl"
-```
+- [InventoryUI `v2.0.5`](https://github.com/TheNINJALLO/endstone-inventoryui/releases/download/v2.0.5/endstone_inventoryui-2.0.5-py3-none-any.whl)
+- [Ninjo's Backpacks `v1.0.88`](https://github.com/TheNINJALLO/endstone-ninjos-backpacks/releases/download/v1.0.88/endstone_ninjos_backpacks-1.0.88-py3-none-any.whl)
 
 Copy the downloaded wheel into the server's `plugins/` directory, remove any older wheel for the same plugin, and restart Endstone.
 
 > [!IMPORTANT]
-> Use Endstone `0.11.8` with BDS `1.26.40`. Back up worlds and plugin data before upgrading a production server.
+> Remove older InventoryUI and Backpacks wheels before installing these releases. Use Endstone `0.11.8` with BDS `1.26.40`, and back up worlds and plugin data before upgrading a production server.
 
 ## Configuration and secrets
 
