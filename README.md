@@ -20,8 +20,9 @@
 </p>
 
 <p align="center">
-  <a href="#overview">Overview</a> &bull;
-  <a href="#compatibility">Compatibility</a> &bull;
+  <a href="#what-it-does">What it does</a> &bull;
+  <a href="#how-to-use">How to use</a> &bull;
+  <a href="#commands-and-permissions">Commands</a> &bull;
   <a href="#install">Install</a> &bull;
   <a href="https://github.com/TheNINJALLO/endstone-ninjos-backpacks/releases">Releases</a>
 </p>
@@ -30,11 +31,26 @@
 
 High-fidelity SQLite/MySQL-backed backpacks plugin utilizing endstone-inventoryui. This release is aligned with Endstone 0.11.8 and Minecraft Bedrock Dedicated Server 1.26.40, and is distributed as a Python wheel for direct installation in an Endstone server.
 
-## Capabilities
+## What it does
 
-- Persistent player backpacks backed by SQLite or MySQL
-- InventoryUI-powered Bedrock interfaces
-- High-fidelity item serialization for portable storage
+- Provides persistent, tiered player backpacks backed by SQLite or MySQL.
+- Preserves item data through high-fidelity serialization and InventoryUI menus.
+- Adds linked advanced hoppers plus staff inventory and ender-chest management.
+
+## How to use
+
+1. Install `endstone-inventoryui`; install `blockdata-api` too when its integration is wanted.
+2. Start once, review the generated backpack tiers, item mappings, and optional MySQL settings, then restart.
+3. Players open their storage with `/backpack`; staff assign tiers and administer stored backpacks through its subcommands.
+4. Use `/hopper link` while targeting the intended containers, and reserve `/manageinv` for staff.
+
+## Commands and permissions
+
+| Command / usage | What it does | Access |
+|---|---|---|
+| `/backpack`<br>`/backpack assign [player: player] [tier: str] [extra_lore: message]`<br>`/backpack config`<br>`/backpack open [player_name: str] [tier: str]`<br>`/backpack delete [player_name: str] [tier: str]`<br>`/backpack info`<br>`/backpack reload`<br>`/backpack list`<br>`/backpack cleanup` | Main command for NinjOSBackpacks | `ninjosbackpacks.command` |
+| `/hopper`<br>`/hopper info`<br>`/hopper link`<br>`/hopper unlink`<br>`/hopper reload`<br>`/hopper list`<br>`/hopper debug [state: str]` | Control Advanced Hoppers | `ninjoshopper.use` |
+| `/manageinv` | Open inventory management interface | `ninjosbackpacks.admin.inv` |
 
 ## Compatibility
 
