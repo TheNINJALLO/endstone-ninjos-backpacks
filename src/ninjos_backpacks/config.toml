@@ -1,0 +1,153 @@
+[item_backpacks.small]
+enabled = true
+material = "minecraft:chest"
+display_name = "§6Small Backpack"
+size = 27
+lore = [
+    "§7A portable storage backpack.",
+    "§8Backpack ID: {id}"
+]
+
+[item_backpacks.large]
+enabled = true
+material = "minecraft:ender_chest"
+display_name = "§bLarge Backpack"
+size = 54
+lore = [
+    "§7A large portable storage backpack.",
+    "§8Backpack ID: {id}"
+]
+
+[item_backpacks.gigantic]
+enabled = true
+material = "minecraft:shulker_box"
+display_name = "§dGigantic Backpack"
+size = 90
+lore = [
+    "§7A massive storage backpack.",
+    "§8Backpack ID: {id}"
+]
+
+[navigation]
+previous_item = "minecraft:feather"
+next_item = "minecraft:feather"
+page_item = "minecraft:book"
+
+[block_storage.vault_small]
+enabled = true
+block_type = "minecraft:crying_obsidian"
+display_name = "§dSmall Block Vault"
+size = 27
+
+[block_storage.vault_large]
+enabled = true
+block_type = "minecraft:lodestone"
+display_name = "§bLarge Block Vault"
+size = 54
+
+[block_storage.vault_gigantic]
+enabled = true
+block_type = "minecraft:respawn_anchor"
+display_name = "§cGigantic Block Vault"
+size = 90
+
+[rules]
+require_owner_for_item_backpacks = true
+allow_backpack_nesting = false
+save_after_each_transaction = false
+
+[advanced_hopper]
+enabled = true
+block_id = "ninjos:hopper"
+
+[advanced_hopper.default]
+enabled = true
+mode = "blacklist"
+horizontal_range = 8
+vertical_up = 4
+vertical_down = 4
+max_items_moved_per_scan = 64
+max_stacks_moved_per_scan = 8
+
+[advanced_hopper.range]
+allowed_horizontal = [4, 8, 16, 32]
+allowed_vertical = [1, 2, 4, 8, 16]
+max_horizontal = 32
+max_vertical_up = 16
+max_vertical_down = 16
+
+[advanced_hopper.movement]
+scan_interval_ticks = 5
+max_items_moved_per_scan = 64
+max_stacks_moved_per_scan = 8
+merge_partial_stacks = true
+respect_destination_capacity = true
+drop_overflow = false
+
+[advanced_hopper.performance]
+max_hoppers_processed_per_tick = 25
+max_entity_checks_per_hopper = 100
+skip_unloaded_chunks = true
+require_chunk_loaded = true
+pause_when_no_players_nearby = true
+player_nearby_range = 64
+debug_timing = false
+
+[advanced_hopper.farm_safety]
+max_hoppers_per_chunk = 16
+max_hoppers_per_player = 100
+max_horizontal_range_without_permission = 16
+max_vertical_range_without_permission = 8
+require_permission_for_large_range = true
+disable_hopper_when_storage_full = false
+storage_full_cooldown_ticks = 100
+
+[advanced_hopper.filter_matching]
+match_type = true
+match_name = false
+match_lore = false
+match_enchants = false
+match_damage = false
+match_custom_data = true
+
+[advanced_hopper.linking]
+require_manual_link = true
+auto_link_adjacent_container = false
+allow_unlinked_collection = false
+allow_internal_buffer = false
+require_same_dimension = true
+max_link_distance = 8
+owner_must_have_access_to_storage = true
+prevent_linking_to_other_players_storage = true
+admin_bypass_link_distance = true
+
+[advanced_hopper.ownership]
+enabled = true
+owner_only_config = true
+allow_trusted_players = true
+admin_bypass = true
+
+[advanced_hopper.breaking]
+prevent_break_if_internal_buffer_not_empty = true
+drop_internal_buffer_on_break = false
+unlink_on_break = true
+
+[virtual_stacks]
+enabled = true
+apply_to_block_containers = true
+apply_to_item_backpacks = false
+max_amount_per_slot = 900
+withdraw_stack_at_a_time = true
+default_withdraw_amount = 64
+use_item_max_stack_size_for_withdraw = true
+show_virtual_amount_in_lore = true
+display_stack_amount = 1
+allow_virtual_stacking_of_unstackables = false
+
+[mysql]
+enabled = false
+host = "localhost"
+port = 3306
+user = "root"
+password = ""
+database = "player_data"

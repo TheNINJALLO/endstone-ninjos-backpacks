@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "endstone-ninjos-backpacks"
+version = "1.0.87"
+description = "High-fidelity SQLite/MySQL-backed backpacks plugin utilizing endstone-inventoryui"
+authors = [
+    { name = "Ninjo" }
+]
+dependencies = [
+    "endstone>=0.11.8,<0.12",
+    "PyMySQL>=1.1,<2",
+    "endstone-inventoryui @ https://github.com/Shock95/endstone-inventoryui/archive/refs/heads/main.zip",
+    "bedrock-protocol-packets-ng @ https://github.com/Shock95/bedrock-protocol-packets-ng/archive/refs/heads/main.zip"
+]
+requires-python = ">=3.11"
+
+[project.entry-points."endstone"]
+ninjos_backpacks = "ninjos_backpacks.plugin:NinjOSBackpacks"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ninjos_backpacks = [
+    "config.toml"
+]
+
+[tool.endstone]
+name = "NinjosBackpacks"
+version = "1.0.87"
+api = "0.11"
+description = "High-fidelity SQLite/MySQL-backed backpacks plugin utilizing endstone-inventoryui"
+authors = ["Ninjo"]
+prefix = "NinjosBackpacks"
+load = "POSTWORLD"
+soft_depend = ["inventoryui", "blockdata_api"]
