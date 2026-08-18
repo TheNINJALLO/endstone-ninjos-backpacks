@@ -452,6 +452,73 @@ class BackpackManager:
                 next_btn.set_item_meta(meta)
             menu.inventory.set_item(53, next_btn)
 
+    def _resync_menu_contents(self, player: Player, menu: Menu) -> None:
+        """Send a full menu refresh so rejected navigation clicks cannot leave stale client slots."""
+        try:
+            from endstone_inventoryui.manager.player_manager import find_session
+
+            session = find_session(player)
+            if session is not None and session.menu is menu:
+                session.send_contents()
+        except Exception as e:
+            self.logger.warning(f"Failed to resync paginated backpack menu: {e}")
+
+    def _schedule_page_change(
+        self,
+        player: Player,
+        menu: Menu,
+        storage_id: str,
+        total_pages: int,
+        page_delta: int,
+    ) -> bool:
+        """Safely persist, repaint, and resync one paginated storage page change."""
+        player_uuid = str(player.unique_id)
+        current_page = self.active_pages.get(player_uuid, 0)
+        target_page = current_page + page_delta
+
+        if not 0 <= target_page < total_pages:
+            return False
+        if player_uuid in self.pending_page_changes:
+            return False
+
+        cache = self.contents_caches.get(player_uuid, {})
+        if not self.supports_virtual_stacks(storage_id):
+            self.save_current_page_to_cache(menu, current_page, cache)
+
+        self.pending_page_changes.add(player_uuid)
+
+        def apply_page_change() -> None:
+            try:
+                # The menu may have closed while this one-tick task was pending.
+                if self.active_pages.get(player_uuid) != current_page:
+                    return
+                if self.contents_caches.get(player_uuid) is not cache:
+                    return
+
+                self.populate_menu_page(menu, target_page, total_pages, cache, storage_id)
+                self.active_pages[player_uuid] = target_page
+                self._resync_menu_contents(player, menu)
+            except Exception as e:
+                self.logger.error(
+                    f"Failed to change paginated storage {storage_id} "
+                    f"from page {current_page + 1} to {target_page + 1}: {e}"
+                )
+            finally:
+                self.pending_page_changes.discard(player_uuid)
+
+        try:
+            self.plugin.server.scheduler.run_task(
+                self.plugin,
+                apply_page_change,
+                delay=1,
+            )
+        except Exception as e:
+            self.pending_page_changes.discard(player_uuid)
+            self.logger.error(f"Failed to schedule paginated storage page change: {e}")
+            return False
+
+        return True
+
     def save_current_page_to_cache(self, menu: Menu, page: int, contents_cache: dict) -> None:
         """Reads storage slots 0-44 from the GUI and writes them into the cache dictionary."""
         start_idx = page * 45
@@ -594,49 +661,10 @@ class BackpackManager:
                         return tr.discard()
 
                 if use_pagination and tr.slot >= 45:
-                    curr_page = self.active_pages.get(player_uuid, 0)
-                    cache = self.contents_caches.get(player_uuid, {})
-
-                    if tr.slot == 45 and curr_page > 0:
-                        if player_uuid in self.pending_page_changes:
-                            return tr.discard()
-                        self.pending_page_changes.add(player_uuid)
-
-                        if not self.supports_virtual_stacks(db_key):
-                            self.save_current_page_to_cache(menu, curr_page, cache)
-                        curr_page -= 1
-                        self.active_pages[player_uuid] = curr_page
-                        target_page = curr_page
-                        
-                        def run_prev_page():
-                            self.populate_menu_page(menu, target_page, total_pages, cache, db_key)
-                            self.pending_page_changes.discard(player_uuid)
-
-                        self.plugin.server.scheduler.run_task(
-                            self.plugin,
-                            run_prev_page,
-                            delay=1
-                        )
-                    elif tr.slot == 53 and curr_page < total_pages - 1:
-                        if player_uuid in self.pending_page_changes:
-                            return tr.discard()
-                        self.pending_page_changes.add(player_uuid)
-
-                        if not self.supports_virtual_stacks(db_key):
-                            self.save_current_page_to_cache(menu, curr_page, cache)
-                        curr_page += 1
-                        self.active_pages[player_uuid] = curr_page
-                        target_page = curr_page
-
-                        def run_next_page():
-                            self.populate_menu_page(menu, target_page, total_pages, cache, db_key)
-                            self.pending_page_changes.discard(player_uuid)
-
-                        self.plugin.server.scheduler.run_task(
-                            self.plugin,
-                            run_next_page,
-                            delay=1
-                        )
+                    if tr.slot == 45:
+                        self._schedule_page_change(player, menu, db_key, total_pages, -1)
+                    elif tr.slot == 53:
+                        self._schedule_page_change(player, menu, db_key, total_pages, 1)
 
                     return tr.discard()
 
@@ -937,49 +965,10 @@ class BackpackManager:
                                         return tr.discard()
 
                 if use_pagination and tr.slot >= 45:
-                    curr_page = self.active_pages.get(player_uuid, 0)
-                    cache = self.contents_caches.get(player_uuid, {})
-
-                    if tr.slot == 45 and curr_page > 0:
-                        if player_uuid in self.pending_page_changes:
-                            return tr.discard()
-                        self.pending_page_changes.add(player_uuid)
-
-                        if not self.supports_virtual_stacks(block_key):
-                            self.save_current_page_to_cache(menu, curr_page, cache)
-                        curr_page -= 1
-                        self.active_pages[player_uuid] = curr_page
-                        target_page = curr_page
-
-                        def run_prev_page():
-                            self.populate_menu_page(menu, target_page, total_pages, cache, block_key)
-                            self.pending_page_changes.discard(player_uuid)
-
-                        self.plugin.server.scheduler.run_task(
-                            self.plugin,
-                            run_prev_page,
-                            delay=1
-                        )
-                    elif tr.slot == 53 and curr_page < total_pages - 1:
-                        if player_uuid in self.pending_page_changes:
-                            return tr.discard()
-                        self.pending_page_changes.add(player_uuid)
-
-                        if not self.supports_virtual_stacks(block_key):
-                            self.save_current_page_to_cache(menu, curr_page, cache)
-                        curr_page += 1
-                        self.active_pages[player_uuid] = curr_page
-                        target_page = curr_page
-
-                        def run_next_page():
-                            self.populate_menu_page(menu, target_page, total_pages, cache, block_key)
-                            self.pending_page_changes.discard(player_uuid)
-
-                        self.plugin.server.scheduler.run_task(
-                            self.plugin,
-                            run_next_page,
-                            delay=1
-                        )
+                    if tr.slot == 45:
+                        self._schedule_page_change(player, menu, block_key, total_pages, -1)
+                    elif tr.slot == 53:
+                        self._schedule_page_change(player, menu, block_key, total_pages, 1)
 
                     return tr.discard()
 
