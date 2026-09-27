@@ -23,7 +23,8 @@ def normalize_block_type(block_type: str) -> str:
 class NinjOSBackpacks(Plugin):
     api_version = "0.11"
     load = "POSTWORLD"
-    soft_depend = ["inventoryui", "blockdata_api"]
+    depend = ["inventoryui"]
+    soft_depend = ["blockdata_api"]
 
     commands = {
         "backpack": {
@@ -164,7 +165,11 @@ class NinjOSBackpacks(Plugin):
 
     def on_disable(self) -> None:
         self.logger.info("NinjOSBackpacks disabling...")
-        # Clean up active sessions
+        # Run menu close/save callbacks while this plugin and its DB still exist.
+        from endstone_inventoryui.manager.player_manager import close_session
+        for player in self.server.online_players:
+            if str(player.unique_id) in self.manager.contents_caches:
+                close_session(player)
         self.manager.active_item_sessions.clear()
         self.logger.info("NinjOSBackpacks successfully disabled.")
 
@@ -369,6 +374,9 @@ class NinjOSBackpacks(Plugin):
         player = event.player
         if player:
             # Clear backpack sessions/locks
+            from endstone_inventoryui.manager.player_manager import close_session
+            if str(player.unique_id) in self.manager.contents_caches:
+                close_session(player, send_close=False)
             self.manager.clear_player_sessions(str(player.unique_id))
             
             # Save user leave time, inventory and ender chest info

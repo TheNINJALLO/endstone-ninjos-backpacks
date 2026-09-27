@@ -541,6 +541,9 @@ class BackpackManager:
             player_name = player.name
 
             # 1. Prevent concurrent open sessions
+            if player_uuid in self.contents_caches:
+                player.send_message(f"{ColorFormat.RED}Close your current storage before opening another one.")
+                return
             if backpack_id in self.active_item_sessions:
                 active_player_uuid = self.active_item_sessions[backpack_id]
                 
@@ -609,7 +612,7 @@ class BackpackManager:
             self.contents_caches[player_uuid] = contents
 
             # GUI initialization
-            menu_type = MenuType.DOUBLE_CHEST if (size == 54 or use_pagination) else MenuType.CHEST
+            menu_type = MenuType.DOUBLE_CHEST if size > 27 else MenuType.CHEST
             
             custom_name = display_name
             if item_stack:
@@ -642,12 +645,15 @@ class BackpackManager:
 
             # 5. Set Locks and Safety Flags
             self.active_item_sessions[backpack_id] = player_uuid
-            self.session_opened_successfully[player_uuid] = True
+            self.session_opened_successfully[player_uuid] = False
+            menu.set_open_listener(lambda _player: self.session_opened_successfully.__setitem__(player_uuid, True))
 
             # 6. Event Handlers
             allow_nesting = self.config.rules.get("allow_backpack_nesting", False)
 
             def on_transaction(tr: MenuTransaction) -> MenuTransactionResult:
+                if player_uuid in self.pending_page_changes:
+                    return tr.discard()
                 clicked_id = get_backpack_id_from_item(tr.item_clicked)
                 clicked_with_id = get_backpack_id_from_item(tr.item_clicked_with)
                 
@@ -668,6 +674,8 @@ class BackpackManager:
 
                     return tr.discard()
 
+                if self.active_pages.get(player_uuid, 0) * 45 + tr.slot >= size:
+                    return tr.discard()
                 if self.supports_virtual_stacks(db_key):
                     curr_page = self.active_pages.get(player_uuid, 0)
                     self.plugin.server.scheduler.run_task(
@@ -691,12 +699,9 @@ class BackpackManager:
                     if self.supports_virtual_stacks(db_key):
                         self.reconcile_virtual_stacks(closed_player, menu, db_key)
                     self.save_backpack_contents(db_key, bp_type, size, owner_uuid, owner_name, menu, use_pagination, closed_player_uuid)
-                    self.active_item_sessions.pop(backpack_id, None)
-                    self.session_opened_successfully.pop(closed_player_uuid, None)
-                    self.active_pages.pop(closed_player_uuid, None)
-                    self.contents_caches.pop(closed_player_uuid, None)
-                    self.pending_page_changes.discard(closed_player_uuid)
                     self.logger.info(f"Backpack for {db_key} closed and saved.")
+                self.active_item_sessions.pop(backpack_id, None)
+                self.clear_player_sessions(closed_player_uuid)
 
             menu.set_listener(on_transaction)
             menu.set_close_listener(on_close)
@@ -704,6 +709,7 @@ class BackpackManager:
             # 7. Open Menu
             menu.send_to(player)
         except Exception as e:
+            self.clear_player_sessions(str(player.unique_id))
             self.logger.error(f"[Backpack ERROR] Exception in open_item_backpack: {e}\n{traceback.format_exc()}")
             player.send_message(f"{ColorFormat.RED}An internal error occurred: {e}")
 
@@ -746,6 +752,7 @@ class BackpackManager:
         self.session_opened_successfully.pop(player_uuid, None)
         self.active_pages.pop(player_uuid, None)
         self.contents_caches.pop(player_uuid, None)
+        self.pending_page_changes.discard(player_uuid)
 
     def open_block_storage(self, player: Player, location, tier_key: str) -> None:
         """Opens a virtual inventory menu for a block-based storage vault."""
@@ -757,6 +764,9 @@ class BackpackManager:
 
         try:
             # 1. Manage session locking (dupe/corruption prevention)
+            if player_uuid in self.contents_caches:
+                player.send_message(f"{ColorFormat.RED}Close your current storage before opening another one.")
+                return
             # Check if this block location is already opened by any player
             has_active_session = False
             active_player_uuid = self.active_item_sessions.get(block_key)
@@ -819,7 +829,7 @@ class BackpackManager:
             self.contents_caches[player_uuid] = contents
 
             # Menu UI initialization
-            menu_type = MenuType.DOUBLE_CHEST if (size == 54 or use_pagination) else MenuType.CHEST
+            menu_type = MenuType.DOUBLE_CHEST if size > 27 else MenuType.CHEST
             menu = Menu(menu_type, display_name)
 
             supports_vs = self.supports_virtual_stacks(block_key)
@@ -840,14 +850,16 @@ class BackpackManager:
                             self.logger.error(f"Failed to deserialize slot {db_slot_str}: {e}")
 
             # 4. Handle menu opening confirmation
-            def on_open_task():
+            def on_open_task(_player):
                 self.session_opened_successfully[player_uuid] = True
 
-            self.plugin.server.scheduler.run_task(self.plugin, on_open_task, delay=4)
+            menu.set_open_listener(on_open_task)
 
             # 5. UI interaction event hooks
             def on_transaction(tr: MenuTransaction) -> MenuTransactionResult:
                 # Safeguards
+                if player_uuid in self.pending_page_changes:
+                    return tr.discard()
                 allow_nesting = self.config.rules.get("allow_backpack_nesting", False)
                 clicked_with_id = get_backpack_id_from_item(tr.item_clicked_with)
 
@@ -855,6 +867,14 @@ class BackpackManager:
                     tr.player.send_message(f"{ColorFormat.RED}Backpack nesting is disabled on this server!")
                     return tr.discard()
 
+                if use_pagination and tr.slot >= 45:
+                    if tr.slot == 45:
+                        self._schedule_page_change(player, menu, block_key, total_pages, -1)
+                    elif tr.slot == 53:
+                        self._schedule_page_change(player, menu, block_key, total_pages, 1)
+                    return tr.discard()
+                if self.active_pages.get(player_uuid, 0) * 45 + tr.slot >= size:
+                    return tr.discard()
                 if self.supports_virtual_stacks(block_key):
                     # Intercept manual deposits (merges) and withdrawals to prevent client swaps and lore leakage!
                     cfg = getattr(self.config, "virtual_stacks", {})
@@ -883,20 +903,27 @@ class BackpackManager:
                             cache_item = cache.get(db_slot_str)
                             
                             # A. Depositing / Merging item of same type
-                            if cursor_item and str(cursor_item.type) == str(gui_item.type):
+                            if tr.destination.container.container_enum == 7 and cursor_item and str(cursor_item.type) == str(gui_item.type):
                                 if cache_item:
                                     current_qty = cache_item.get("amount", 1)
-                                    added_qty = cursor_item.amount
-                                    new_qty = current_qty + added_qty
-                                    
-                                    if new_qty > max_amount:
-                                        excess = new_qty - max_amount
-                                        tr.item_clicked_with.amount = excess
-                                        new_qty = max_amount
+                                    from endstone_inventoryui.manager.player_manager import find_session
+                                    session = find_session(tr.player)
+                                    source_container, source_slot = session.container_manager.get_container_adapter_and_slot(tr.source)
+                                    source_item = source_container.actual.get(source_slot)
+                                    clean_item = deserialize_item(cache_item)
+                                    if source_item is None or not source_item.is_similar(clean_item):
+                                        return tr.discard()
+                                    added_qty = min(tr.amount, source_item.amount, max_amount - current_qty)
+                                    if added_qty <= 0:
+                                        return tr.discard()
+                                    remaining = source_item.amount - added_qty
+                                    if remaining:
+                                        source_item.amount = remaining
+                                        source_container.actual.set(source_slot, source_item)
                                     else:
-                                        tr.item_clicked_with.type = "minecraft:air"
-                                        tr.item_clicked_with.amount = 0
-                                    
+                                        source_container.actual.set(source_slot, None)
+                                    new_qty = current_qty + added_qty
+                                    self.plugin.server.scheduler.run_task(self.plugin, session.send_cursor, delay=1)
                                     cache_item["amount"] = new_qty
                                     
                                     # Consolidate cache and redraw GUI slots to match consolidated state
@@ -920,7 +947,7 @@ class BackpackManager:
                                     return tr.discard()
                             
                             # B. Withdrawing (clicking with empty cursor / air)
-                            elif not cursor_item or str(cursor_item.type) == "minecraft:air":
+                            elif tr.source.container.container_enum == 7 and (not cursor_item or str(cursor_item.type) == "minecraft:air"):
                                 if cache_item:
                                     stored_qty = cache_item.get("amount", 1)
                                     item_example = deserialize_item(cache_item)
@@ -964,14 +991,6 @@ class BackpackManager:
                                         )
                                         return tr.discard()
 
-                if use_pagination and tr.slot >= 45:
-                    if tr.slot == 45:
-                        self._schedule_page_change(player, menu, block_key, total_pages, -1)
-                    elif tr.slot == 53:
-                        self._schedule_page_change(player, menu, block_key, total_pages, 1)
-
-                    return tr.discard()
-
                 if self.supports_virtual_stacks(block_key):
                     curr_page = self.active_pages.get(player_uuid, 0)
                     self.plugin.server.scheduler.run_task(
@@ -996,12 +1015,9 @@ class BackpackManager:
                         self.reconcile_virtual_stacks(closed_player, menu, block_key)
                         self.clean_player_inventory(closed_player)
                     self.save_backpack_contents(block_key, tier_key, size, owner_uuid, owner_name, menu, use_pagination, closed_player_uuid)
-                    self.active_item_sessions.pop(block_key, None)
-                    self.session_opened_successfully.pop(closed_player_uuid, None)
-                    self.active_pages.pop(closed_player_uuid, None)
-                    self.contents_caches.pop(closed_player_uuid, None)
-                    self.pending_page_changes.discard(closed_player_uuid)
                     self.logger.info(f"Vault {block_key} closed and saved.")
+                self.active_item_sessions.pop(block_key, None)
+                self.clear_player_sessions(closed_player_uuid)
 
             menu.set_listener(on_transaction)
             menu.set_close_listener(on_close)
@@ -1009,5 +1025,6 @@ class BackpackManager:
             # 6. Open Menu
             menu.send_to(player)
         except Exception as e:
+            self.clear_player_sessions(str(player.unique_id))
             self.logger.error(f"[Block Storage ERROR] Exception in open_block_storage: {e}\n{traceback.format_exc()}")
             player.send_message(f"{ColorFormat.RED}An internal error occurred: {e}")
