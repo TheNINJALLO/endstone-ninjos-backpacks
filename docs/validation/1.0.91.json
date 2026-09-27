@@ -1,0 +1,40 @@
+{
+  "runtime": {
+    "endstone": "0.11.11",
+    "bds": "1.26.51.1",
+    "python": "3.11",
+    "platform": "Windows x64",
+    "client": "gophertunnel 1.62.0 / protocol 2193"
+  },
+  "backpack": {
+    "checks": [
+      "double chest opened without violation warning",
+      "deposit and withdraw conserve named items",
+      "next and previous page actions preserve contents",
+      "SQLite close and reopen preserve contents and metadata",
+      "stop with an open backpack flushes SQLite without a crash"
+    ],
+    "wheel_sha256": {
+      "endstone_inventoryui-2.0.7-py3-none-any.whl": "0a1c0f324616dc2e49281a75187dc6e3302d15aaa8b51b390e6be105379ad376",
+      "endstone_inventory_manager-1.0.16-py3-none-any.whl": "73e1dacdb30b57c822feab84cb7270b01c2ed879f4c9fe365a3514ad48b120f1",
+      "endstone_ninjos_backpacks-1.0.91-py3-none-any.whl": "6700f349c57a3aacd244f4061a30780d91d10f2b583b1daf394269c9f306cf88"
+    },
+    "passed": true,
+    "server_exit": 0
+  },
+  "virtual_vault_and_cursor": {
+    "checks": [
+      "double chest opened without violation warning",
+      "cursor partial deposit preserves remainder and custom NBT",
+      "virtual vault merge, withdrawal, and both page buttons conserve 112 items",
+      "stop with an open backpack flushes SQLite without a crash"
+    ],
+    "wheel_sha256": {
+      "endstone_inventoryui-2.0.7-py3-none-any.whl": "0a1c0f324616dc2e49281a75187dc6e3302d15aaa8b51b390e6be105379ad376",
+      "endstone_inventory_manager-1.0.16-py3-none-any.whl": "73e1dacdb30b57c822feab84cb7270b01c2ed879f4c9fe365a3514ad48b120f1",
+      "endstone_ninjos_backpacks-1.0.91-py3-none-any.whl": "6700f349c57a3aacd244f4061a30780d91d10f2b583b1daf394269c9f306cf88"
+    },
+    "passed": true,
+    "server_exit": 0
+  }
+}
