@@ -60,14 +60,14 @@ High-fidelity SQLite/MySQL-backed backpacks plugin utilizing endstone-inventoryu
 | Endstone API | `0.11` |
 | Bedrock Dedicated Server | `1.26.51` |
 | Python | `>=3.11` |
-| Plugin release | `v1.0.92` |
+| Plugin release | `v1.0.93` |
 
 ## Install
 
 Download both required wheels over HTTPS:
 
-- [InventoryUI `v2.0.7`](https://github.com/TheNINJALLO/endstone-inventoryui/releases/download/v2.0.7/endstone_inventoryui-2.0.7-py3-none-any.whl)
-- [Ninjo's Backpacks `v1.0.92`](https://github.com/TheNINJALLO/endstone-ninjos-backpacks/releases/download/v1.0.92/endstone_ninjos_backpacks-1.0.92-py3-none-any.whl)
+- [InventoryUI `v2.0.8`](https://github.com/TheNINJALLO/endstone-inventoryui/releases/download/v2.0.8/endstone_inventoryui-2.0.8-py3-none-any.whl)
+- [Ninjo's Backpacks `v1.0.93`](https://github.com/TheNINJALLO/endstone-ninjos-backpacks/releases/download/v1.0.93/endstone_ninjos_backpacks-1.0.93-py3-none-any.whl)
 
 Copy the downloaded wheel into the server's `plugins/` directory, remove any older wheel for the same plugin, and restart Endstone.
 
@@ -82,6 +82,12 @@ Runtime databases, logs, local `.env` files, server directories, and root `confi
 
 Every `v*` tag runs [the wheel release workflow](.github/workflows/wheel-release.yml), builds the package in a clean GitHub runner, stores the wheel as a workflow artifact, and attaches it to the matching GitHub release.
 <!-- endstone-professional-header:end -->
+
+## 1.0.93 startup compatibility
+
+Requires InventoryUI **2.0.8**, which loads its protocol helpers privately and fixes the `NetworkStackLatencyPacket` import failure caused by shared protocol package conflicts. Backpacks no longer patches that shared package during import. Its existing NBT preservation integration and the 1.0.92 shulker-name fix are retained.
+
+Stop the server, replace both wheels, keep one version of each plugin, and preserve all data. See [startup troubleshooting](https://github.com/TheNINJALLO/endstone-inventoryui/blob/main/docs/startup.md).
 
 ## 1.0.92 interaction repair
 

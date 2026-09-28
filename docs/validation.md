@@ -1,4 +1,10 @@
-# 1.0.92 validation
+# 1.0.93 startup validation
+
+Backpacks now selects InventoryUI 2.0.8 and no longer patches the shared protocol package while importing. The combined unit suite passes **51 tests on Python 3.11 and 3.14**. Built wheels pass live Linux/Python 3.14 air/block interactions, paginated item transfers, SQLite reopen/shutdown saving, and virtual vault/cursor conservation with conflicting protocol distributions installed. A Windows/Python 3.11 live regression also passes.
+
+See [coordinated release results](https://github.com/TheNINJALLO/endstone-inventoryui/blob/main/docs/validation/2.0.8.json) and [startup troubleshooting](https://github.com/TheNINJALLO/endstone-inventoryui/blob/main/docs/startup.md). Retail-device rendering remains outside automated coverage.
+
+## Earlier 1.0.92 validation
 
 Backpacks 1.0.91 was reproduced failing to open an assigned gigantic backpack through a real `RIGHT_CLICK_AIR` interaction. The server stored the item as `minecraft:white_shulker_box`, while the configured material remained `minecraft:shulker_box`. No InventoryUI session was created. Version 1.0.92 matches both names and preserves the existing storage ID.
 

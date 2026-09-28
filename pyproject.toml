@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "endstone-ninjos-backpacks"
-version = "1.0.92"
+version = "1.0.93"
 description = "High-fidelity SQLite/MySQL-backed backpacks plugin utilizing endstone-inventoryui"
 authors = [
     { name = "Ninjo" }
@@ -12,8 +12,7 @@ authors = [
 dependencies = [
     "endstone>=0.11.11,<0.12",
     "PyMySQL>=1.1,<2",
-    "endstone-inventoryui @ https://github.com/TheNINJALLO/endstone-inventoryui/archive/refs/tags/v2.0.7.zip",
-    "bedrock-protocol-packets-ng==0.0.9"
+    "endstone-inventoryui @ https://github.com/TheNINJALLO/endstone-inventoryui/archive/refs/tags/v2.0.8.zip"
 ]
 requires-python = ">=3.11"
 
@@ -30,7 +29,7 @@ ninjos_backpacks = [
 
 [tool.endstone]
 name = "NinjosBackpacks"
-version = "1.0.92"
+version = "1.0.93"
 api = "0.11"
 description = "High-fidelity SQLite/MySQL-backed backpacks plugin utilizing endstone-inventoryui"
 authors = ["Ninjo"]

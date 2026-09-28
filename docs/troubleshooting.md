@@ -1,6 +1,8 @@
 # Opening backpacks
 
-Install Backpacks **1.0.92** and InventoryUI **2.0.7** in the server's `plugins/` directory. Stop the server before replacing wheels, keep one wheel per plugin, and preserve the plugin data directories. Startup should report both plugins enabled at those versions.
+If InventoryUI reports `cannot import name 'NetworkStackLatencyPacket'` at startup, install the coordinated versions below. InventoryUI 2.0.8 isolates its protocol imports from conflicting packages; see [startup troubleshooting](https://github.com/TheNINJALLO/endstone-inventoryui/blob/main/docs/startup.md).
+
+Install Backpacks **1.0.93** and InventoryUI **2.0.8** in the server's `plugins/` directory. Stop the server before replacing wheels, keep one wheel per plugin, and preserve the plugin data directories. Startup should report both plugins enabled at those versions.
 
 Hold the assigned backpack in the selected hotbar slot and use it against air or a block. `/backpack` displays help; it does not open storage. Staff can issue an item with `/backpack assign <player> <small|large|gigantic>`. `/backpack info` reads the identity of the held backpack.
 
