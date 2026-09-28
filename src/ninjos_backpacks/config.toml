@@ -20,7 +20,7 @@ lore = [
 
 [item_backpacks.gigantic]
 enabled = true
-material = "minecraft:shulker_box"
+material = "minecraft:white_shulker_box"
 display_name = "§dGigantic Backpack"
 size = 90
 lore = [

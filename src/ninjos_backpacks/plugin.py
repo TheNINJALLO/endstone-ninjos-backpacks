@@ -20,6 +20,15 @@ def normalize_block_type(block_type: str) -> str:
         return ""
     return block_type.lower().replace("minecraft:", "")
 
+
+def normalize_backpack_material(material: str) -> str:
+    """Match the legacy Bedrock shulker item name to its stored item type."""
+    normalized = normalize_block_type(material)
+    # BDS upgrades shulker_box to white_shulker_box when storing an ItemStack.
+    # Keep existing configs and issued backpacks usable without changing IDs.
+    return "white_shulker_box" if normalized == "shulker_box" else normalized
+
+
 class NinjOSBackpacks(Plugin):
     api_version = "0.11"
     load = "POSTWORLD"
@@ -237,10 +246,10 @@ class NinjOSBackpacks(Plugin):
                     event.is_cancelled = True
                     
                     # Match item material to configuration
-                    norm_held = normalize_block_type(str(held_item.type))
+                    norm_held = normalize_backpack_material(str(held_item.type))
                     matched_tier = None
                     for tier, bp in self.cfg.item_backpacks.items():
-                        norm_material = normalize_block_type(bp.get("material", ""))
+                        norm_material = normalize_backpack_material(bp.get("material", ""))
                         if bp.get("enabled", True) and norm_material == norm_held:
                             matched_tier = tier
                             break

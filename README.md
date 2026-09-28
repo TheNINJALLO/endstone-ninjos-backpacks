@@ -41,7 +41,7 @@ High-fidelity SQLite/MySQL-backed backpacks plugin utilizing endstone-inventoryu
 
 1. Install `endstone-inventoryui`; install `blockdata-api` too when its integration is wanted.
 2. Start once, review the generated backpack tiers, item mappings, and optional MySQL settings, then restart.
-3. Players open their storage with `/backpack`; staff assign tiers and administer stored backpacks through its subcommands.
+3. Hold the assigned backpack and use it (right-click air or a block). `/backpack` displays command help; staff assign tiers with `/backpack assign <player> <tier>`.
 4. Use `/hopper link` while targeting the intended containers, and reserve `/manageinv` for staff.
 
 ## Commands and permissions
@@ -60,14 +60,14 @@ High-fidelity SQLite/MySQL-backed backpacks plugin utilizing endstone-inventoryu
 | Endstone API | `0.11` |
 | Bedrock Dedicated Server | `1.26.51` |
 | Python | `>=3.11` |
-| Plugin release | `v1.0.91` |
+| Plugin release | `v1.0.92` |
 
 ## Install
 
 Download both required wheels over HTTPS:
 
-- [InventoryUI `v2.0.6`](https://github.com/TheNINJALLO/endstone-inventoryui/releases/download/v2.0.6/endstone_inventoryui-2.0.6-py3-none-any.whl)
-- [Ninjo's Backpacks `v1.0.91`](https://github.com/TheNINJALLO/endstone-ninjos-backpacks/releases/download/v1.0.91/endstone_ninjos_backpacks-1.0.91-py3-none-any.whl)
+- [InventoryUI `v2.0.7`](https://github.com/TheNINJALLO/endstone-inventoryui/releases/download/v2.0.7/endstone_inventoryui-2.0.7-py3-none-any.whl)
+- [Ninjo's Backpacks `v1.0.92`](https://github.com/TheNINJALLO/endstone-ninjos-backpacks/releases/download/v1.0.92/endstone_ninjos_backpacks-1.0.92-py3-none-any.whl)
 
 Copy the downloaded wheel into the server's `plugins/` directory, remove any older wheel for the same plugin, and restart Endstone.
 
@@ -82,6 +82,12 @@ Runtime databases, logs, local `.env` files, server directories, and root `confi
 
 Every `v*` tag runs [the wheel release workflow](.github/workflows/wheel-release.yml), builds the package in a clean GitHub runner, stores the wheel as a workflow artifact, and attaches it to the matching GitHub release.
 <!-- endstone-professional-header:end -->
+
+## 1.0.92 interaction repair
+
+Bedrock stores the legacy `minecraft:shulker_box` backpack as `minecraft:white_shulker_box`. Backpacks now match both names, so existing gigantic backpacks open with existing configurations and keep their storage IDs. New configurations use the current item name. Other colors and custom item namespaces remain distinct.
+
+Use InventoryUI **2.0.7** with this release. The installation link above now points to that version; the previous README linked to 2.0.6 even though the dependency required 2.0.7. See [validation](docs/validation.md) and [troubleshooting](docs/troubleshooting.md).
 
 ## 1.0.91 repair release
 
