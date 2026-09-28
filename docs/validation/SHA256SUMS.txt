@@ -1,1 +1,2 @@
 6700f349c57a3aacd244f4061a30780d91d10f2b583b1daf394269c9f306cf88  endstone_ninjos_backpacks-1.0.91-py3-none-any.whl
+57b6bd47d948ea7eeb6b05869e50b2e5bea11b03b9bb07205157377a998643b8  endstone_ninjos_backpacks-1.0.92-py3-none-any.whl

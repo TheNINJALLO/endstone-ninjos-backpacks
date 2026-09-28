@@ -9,13 +9,15 @@ The Backpacks and InventoryUI unit suites pass all **49 tests**. Seven built-whe
 | Small (27 slots) | Passed | Passed |
 | Large (54 slots) | Passed | Passed |
 | Gigantic (90 slots, current name) | Passed | Passed |
-| Gigantic (legacy `shulker_box`) | Passed using source | Passed using built wheel |
+| Gigantic (legacy `shulker_box`) | Passed using published wheel | Passed using built wheel |
 
 Each built-wheel scenario verifies the real interaction event, chest open acknowledgement and decoded inventory, item deposit/withdrawal, named/custom NBT preservation, SQLite close/reopen, and final save during shutdown with a normal server exit. The gigantic tier also verifies both page buttons. Small and large fit in a single menu and have no page actions.
 
 The independently encoded Gophertunnel 1.62.0 client uses protocol 2193. It waits for an in-world spawn and selects the assigned backpack before using it. The probe seeds the client's initial inventory snapshot; native inventory refresh and retail UI rendering are outside this coverage. The tests do not establish touch/controller behavior, MySQL behavior, or production deployment.
 
-See [machine-readable results and wheel hashes](validation/1.0.92.json) and the [reproduction guide](https://github.com/TheNINJALLO/endstone-inventoryui/blob/main/tests/live/README.md). The original 1.0.91 tests below called the manager directly and did not cover item interaction.
+The downloaded GitHub release wheel also passed the full legacy gigantic air-interaction scenario. All 16 runtime/config files match the locally tested wheel after Windows/Unix line-ending normalization. The [tagged release build and wheel tests](https://github.com/TheNINJALLO/endstone-ninjos-backpacks/actions/runs/36364409204) passed.
+
+See [machine-readable results and wheel hashes](validation/1.0.92.json) and the [reproduction guide](https://github.com/TheNINJALLO/endstone-inventoryui/blob/45ab050e3c7ff21a0c1af38944017f17e89b864e/tests/live/README.md). The original 1.0.91 tests below called the manager directly and did not cover item interaction.
 
 ## Earlier 1.0.91 validation
 

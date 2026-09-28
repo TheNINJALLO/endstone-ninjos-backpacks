@@ -161,5 +161,31 @@
     "Protocol client, not a retail visual test.",
     "The probe seeds the initial inventory snapshot; native inventory refresh is outside this test.",
     "MySQL, retail touch/controller input and production deployment were not tested."
-  ]
+  ],
+  "published_wheel_runs": [
+    {
+      "checks": [
+        "assigned backpack opens through real air interaction",
+        "chest menu open acknowledged and contents decoded",
+        "deposit and withdraw conserve named items",
+        "next and previous page actions preserve contents",
+        "SQLite close and reopen preserve contents and metadata",
+        "stop with an open backpack flushes SQLite without a crash"
+      ],
+      "interaction": "air",
+      "tier": "gigantic",
+      "legacy_material": true,
+      "wheel_sha256": {
+        "endstone_inventoryui-2.0.7-py3-none-any.whl": "0a1c0f324616dc2e49281a75187dc6e3302d15aaa8b51b390e6be105379ad376",
+        "endstone_inventory_manager-1.0.16-py3-none-any.whl": "73e1dacdb30b57c822feab84cb7270b01c2ed879f4c9fe365a3514ad48b120f1",
+        "endstone_ninjos_backpacks-1.0.92-py3-none-any.whl": "57b6bd47d948ea7eeb6b05869e50b2e5bea11b03b9bb07205157377a998643b8"
+      },
+      "server_exit": 0,
+      "passed": true
+    }
+  ],
+  "published_payload_comparison": "All 16 runtime/config files match the local tested wheel after CRLF normalization; 15 files differ only in line endings.",
+  "source_commit": "1927f760d6c7577c42a203e8e54452efc296afca",
+  "runner_commit": "45ab050e3c7ff21a0c1af38944017f17e89b864e",
+  "release_ci": "https://github.com/TheNINJALLO/endstone-ninjos-backpacks/actions/runs/36364409204"
 }
