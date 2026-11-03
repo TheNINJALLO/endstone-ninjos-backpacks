@@ -169,6 +169,7 @@ class NinjOSBackpacks(Plugin):
         
         # Start the recurring scanner scheduler loop
         self.hopper_module.start()
+        self.server.scheduler.run_task(self, self.db.recover_pending, delay=20, period=20)
                 
         self.logger.info("NinjOSBackpacks successfully enabled!")
 

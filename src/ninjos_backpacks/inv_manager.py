@@ -318,6 +318,8 @@ class InventoryManagerUI:
                     menu.inventory.set_item(49, item)
         except Exception as e:
             self.logger.error(f"Error loading offline inventory for {user.name}: {e}")
+            viewer.send_message("§cSaved inventory could not be read; editing was cancelled.")
+            return
 
         # 3. Listeners
         def on_transaction(tr: MenuTransaction) -> MenuTransactionResult:
@@ -381,6 +383,8 @@ class InventoryManagerUI:
                     menu.inventory.set_item(slot, item)
         except Exception as e:
             self.logger.error(f"Error loading offline ender chest for {user.name}: {e}")
+            viewer.send_message("§cSaved ender chest could not be read; editing was cancelled.")
+            return
 
         def on_transaction(tr: MenuTransaction) -> MenuTransactionResult:
             self.server.scheduler.run_task(

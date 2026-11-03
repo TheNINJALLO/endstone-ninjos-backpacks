@@ -4,6 +4,7 @@ import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
+from .recovery import RecoveryJournal, PendingSave
 
 try:
     import pymysql
@@ -38,6 +39,15 @@ class Database:
             self.use_mysql = False
 
         self.init_db()
+        self.recovery = RecoveryJournal(self.db_path.with_name('backpacks.recovery.sqlite3'))
+        self.recover_pending()
+
+    def recover_pending(self):
+        for storage_id, payload in self.recovery.entries():
+            try:
+                self.save_item_backpack(storage_id, **payload)
+            except OSError as error:
+                self.logger.error(f"Storage recovery retained for {storage_id}: {error}")
 
     def _get_connection(self):
         if self.use_mysql:
@@ -307,6 +317,9 @@ class Database:
 
     def get_item_backpack(self, backpack_id: str) -> Optional[Dict[str, Any]]:
         """Retrieve item backpack record from DB."""
+        pending = self.recovery.get(backpack_id)
+        if pending is not None:
+            self.save_item_backpack(backpack_id, **pending)
         placeholder = "%s" if self.use_mysql else "?"
         query = f"SELECT * FROM item_backpacks WHERE backpack_id = {placeholder}"
         try:
@@ -333,9 +346,19 @@ class Database:
                         return res
         except Exception as e:
             self.logger.error(f"Error reading item backpack {backpack_id}: {e}")
+            raise OSError(f"Could not read backpack {backpack_id}; refusing to open empty storage") from e
         return None
 
     def save_item_backpack(self, backpack_id: str, bp_type: str, size: int, owner_uuid: Optional[str], owner_name: Optional[str], contents: Dict[str, Any]):
+        payload = dict(bp_type=bp_type, size=size, owner_uuid=owner_uuid, owner_name=owner_name, contents=contents)
+        encoded = self.recovery.put(backpack_id, payload)
+        try:
+            self._write_item_backpack(backpack_id, **payload)
+            self.recovery.acknowledge(backpack_id, encoded)
+        except Exception as error:
+            raise PendingSave(f"Backpack {backpack_id} retained in the local recovery journal; primary save failed") from error
+
+    def _write_item_backpack(self, backpack_id: str, bp_type: str, size: int, owner_uuid: Optional[str], owner_name: Optional[str], contents: Dict[str, Any]):
         """Save/upsert item backpack contents and metadata."""
         now = datetime.datetime.now().isoformat()
         contents_json = json.dumps(contents)
@@ -361,6 +384,7 @@ class Database:
                     conn.close()
             except Exception as e:
                 self.logger.error(f"Error saving item backpack {backpack_id} to MySQL: {e}")
+                raise OSError(f"Could not save backpack {backpack_id}") from e
         else:
             query = """
                 INSERT INTO item_backpacks (backpack_id, type, size, owner_uuid, owner_name, created_at, updated_at, contents)
@@ -379,6 +403,7 @@ class Database:
                     conn.commit()
             except Exception as e:
                 self.logger.error(f"Error saving item backpack {backpack_id} to SQLite: {e}")
+                raise OSError(f"Could not save backpack {backpack_id}") from e
 
     def update_backpack_sizes(self, tier_sizes: Dict[str, int]) -> None:
         """Updates the size of registered backpacks of the given types to match current config sizes."""
@@ -707,7 +732,7 @@ class Database:
                     return [item for item in items if item.get("type") is not None]
         except Exception as e:
             self.logger.error(f"Error loading inventory for xuid {xuid}: {e}")
-            return []
+            raise OSError("Could not read saved inventory") from e
 
     def save_enderchest(self, player) -> bool:
         items = []
@@ -743,4 +768,4 @@ class Database:
                     return [item for item in items if item.get("type") is not None]
         except Exception as e:
             self.logger.error(f"Error loading ender chest for xuid {xuid}: {e}")
-            return []
+            raise OSError("Could not read saved ender chest") from e

@@ -1,3 +1,7 @@
+> Item-storage safety release **1.0.94**, Endstone **0.11.15 / BDS 1.26.60.6**. Install **InventoryUI 2.0.10** with this version. Full item NBT and auxiliary data are required; unreadable saved items block opening instead of being replaced with empty slots. Accepted ordinary backpack transactions checkpoint before acknowledgement. Failed primary saves remain in `backpacks.recovery.sqlite3` and pause moves until replay succeeds. Keep that journal with plugin data during backup/migration. Virtual-storage reconciliation checkpoints on the following tick.
+>
+> For cross-server backpacks, every server must use the **same Backpacks MySQL database**. Inventory Share alone carries the backpack item, not the separate Backpacks contents table. Do not point an existing installation at a new empty database as a recovery attempt. These changes do not reconstruct metadata or items already discarded by older saves.
+
 <!-- endstone-professional-header:start -->
 <p align="center">
   <img src="docs/assets/banner.svg" width="100%" alt="Endstone Ninjo's Backpacks &mdash; High-fidelity SQLite/MySQL-backed backpacks plugin utilizing endstone-inventoryui">
@@ -9,9 +13,9 @@
 </p>
 
 <p align="center">
-  <img alt="Endstone 0.11.11 / 0.11.12" src="https://img.shields.io/badge/Endstone-0.11.12-52b7a8?style=flat-square">
+  <img alt="Endstone 0.11.15" src="https://img.shields.io/badge/Endstone-0.11.12-52b7a8?style=flat-square">
   <img alt="API 0.11" src="https://img.shields.io/badge/API-0.11-63b8ff?style=flat-square">
-  <img alt="BDS 1.26.51" src="https://img.shields.io/badge/BDS-1.26.51-8b7dff?style=flat-square">
+  <img alt="BDS 1.26.60.6" src="https://img.shields.io/badge/BDS-1.26.60.6-8b7dff?style=flat-square">
   <img alt="Python >=3.11" src="https://img.shields.io/badge/Python-%3E=3.11-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white">
 </p>
 
@@ -29,7 +33,7 @@
 
 ## Overview
 
-High-fidelity SQLite/MySQL-backed backpacks plugin utilizing endstone-inventoryui. This release is aligned with Endstone 0.11.11 / 0.11.12 and Minecraft Bedrock Dedicated Server 1.26.51, and is distributed as a Python wheel for direct installation in an Endstone server.
+High-fidelity SQLite/MySQL-backed backpacks plugin utilizing endstone-inventoryui. This release is aligned with Endstone 0.11.15 and Minecraft Bedrock Dedicated Server 1.26.60.6, and is distributed as a Python wheel for direct installation in an Endstone server.
 
 ## What it does
 
@@ -56,23 +60,23 @@ High-fidelity SQLite/MySQL-backed backpacks plugin utilizing endstone-inventoryu
 
 | Component | Supported version |
 |---|---|
-| Endstone | `0.11.11 / 0.11.12` |
+| Endstone | `0.11.15` |
 | Endstone API | `0.11` |
-| Bedrock Dedicated Server | `1.26.51` |
+| Bedrock Dedicated Server | `1.26.60.6` |
 | Python | `>=3.11` |
-| Plugin release | `v1.0.93` |
+| Plugin release | `v1.0.94` |
 
 ## Install
 
 Download both required wheels over HTTPS:
 
-- [InventoryUI `v2.0.8`](https://github.com/TheNINJALLO/endstone-inventoryui/releases/download/v2.0.8/endstone_inventoryui-2.0.8-py3-none-any.whl)
-- [Ninjo's Backpacks `v1.0.93`](https://github.com/TheNINJALLO/endstone-ninjos-backpacks/releases/download/v1.0.93/endstone_ninjos_backpacks-1.0.93-py3-none-any.whl)
+- [InventoryUI `v2.0.10`](https://github.com/TheNINJALLO/endstone-inventoryui/releases/download/v2.0.10/endstone_inventoryui-2.0.10-py3-none-any.whl)
+- [Ninjo's Backpacks `v1.0.94`](https://github.com/TheNINJALLO/endstone-ninjos-backpacks/releases/download/v1.0.94/endstone_ninjos_backpacks-1.0.94-py3-none-any.whl)
 
 Copy the downloaded wheel into the server's `plugins/` directory, remove any older wheel for the same plugin, and restart Endstone.
 
 > [!IMPORTANT]
-> Remove older InventoryUI and Backpacks wheels before installing these releases. Use Endstone `0.11.11 / 0.11.12` with BDS `1.26.51`, and back up worlds and plugin data before upgrading a production server.
+> Remove older InventoryUI and Backpacks wheels before installing these releases. Use Endstone `0.11.15` with BDS `1.26.60.6`, and back up worlds and plugin data before upgrading a production server.
 
 ## Configuration and secrets
 

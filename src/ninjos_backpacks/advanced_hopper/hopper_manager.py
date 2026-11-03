@@ -129,9 +129,11 @@ class BackpackStorageAdapter:
             return False
 
         # Compare lore (ignoring virtual stack lore)
-        lore1 = [line for line in item1.item_meta.lore if "Stored Amount:" not in line] if (item1.item_meta and item1.item_meta.has_lore) else []
-        lore2 = [line for line in item2.item_meta.lore if "Stored Amount:" not in line] if (item2.item_meta and item2.item_meta.has_lore) else []
+        lore1 = list(item1.item_meta.lore) if (item1.item_meta and item1.item_meta.has_lore) else []
+        lore2 = list(item2.item_meta.lore) if (item2.item_meta and item2.item_meta.has_lore) else []
         if lore1 != lore2:
+            return False
+        if item1.data != item2.data:
             return False
 
         # Enforce strict NBT matching for all items (stackable and unstackable)

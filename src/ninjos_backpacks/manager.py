@@ -10,6 +10,36 @@ from endstone.inventory import ItemStack
 from endstone_inventoryui import Menu, MenuType, MenuTransaction, MenuTransactionResult
 
 from ninjos_backpacks.serializer import serialize_item, deserialize_item, get_backpack_id_from_item, CompoundTag, ListTag, StringTag
+from ninjos_backpacks.recovery import PendingSave
+from endstone.nbt import IntTag
+
+VISUAL_MARKER = 'ninjos_backpacks:virtual_display_lore_count'
+
+
+def item_identity(item):
+    record = serialize_item(item)
+    if record is None:
+        return None
+    record.pop('amount', None)
+    values = record.get('nbt', {}).get('value', {})
+    marker = values.pop(VISUAL_MARKER, None)
+    display = values.get('display', {}).get('value', {})
+    lore = display.get('Lore', {}).get('value', [])
+    if marker is not None:
+        count = marker['value']
+        if len(lore) != count + 1 or not lore[-1]['value'].startswith('§7Stored Amount: §e'):
+            raise ValueError('Invalid virtual item display marker')
+        display['Lore']['value'] = lore[:count]
+    if 'Lore' in display and not display['Lore']['value']:
+        display.pop('Lore')
+    if 'display' in values and not display:
+        values.pop('display')
+    return record
+
+
+def different_storage_items(first, second):
+    left, right = item_identity(first), item_identity(second)
+    return left is not None and right is not None and left != right
 
 class BackpackManager:
     def __init__(self, plugin):
@@ -33,6 +63,42 @@ class BackpackManager:
         self.contents_caches: Dict[str, dict] = {}
         # Track pending page changes to prevent double-clicks/multi-action triggers
         self.pending_page_changes = set()
+        self.active_menus: Dict[str, Menu] = {}
+        self.failed_storage = set()
+
+    def checkpoint(self, player, storage_id, tier, size, owner_uuid, owner_name, menu, paginated):
+        player_uuid = str(player.unique_id)
+        if self.active_menus.get(player_uuid) is not menu:
+            return
+        if not self.session_opened_successfully.get(player_uuid, False):
+            return
+        try:
+            self.save_backpack_contents(storage_id, tier, size, owner_uuid, owner_name, menu, paginated, player_uuid)
+            self.failed_storage.discard(storage_id)
+        except PendingSave as error:
+            self.failed_storage.add(storage_id)
+            self.logger.error(str(error))
+            player.send_message(f"{ColorFormat.RED}Storage save is awaiting database recovery. Your contents were retained locally; further moves are paused.")
+
+    def storage_available(self, storage_id):
+        if storage_id not in self.failed_storage:
+            return True
+        try:
+            self.db.get_item_backpack(storage_id)
+        except OSError:
+            return False
+        self.failed_storage.discard(storage_id)
+        return True
+
+    def validate_saved_contents(self, contents: dict) -> None:
+        """Never expose an empty GUI for a saved item that could not be decoded."""
+        if not isinstance(contents, dict):
+            raise ValueError("Invalid saved backpack contents")
+        for slot, record in contents.items():
+            if not isinstance(slot, str) or not slot.isdecimal() or record is None:
+                raise ValueError(f"Invalid saved backpack slot {slot}")
+            if deserialize_item(record) is None:
+                raise ValueError(f"Could not restore backpack slot {slot}")
 
     def supports_virtual_stacks(self, storage_id: str) -> bool:
         """Returns True if the storage ID supports virtual stacks under active config settings."""
@@ -89,7 +155,8 @@ class BackpackManager:
                     else:
                         existing_lore_lines.append(str(child))
                 
-                new_lines = [line for line in existing_lore_lines if not line.startswith("§7Stored Amount:")]
+                new_lines = list(existing_lore_lines)
+                tag[VISUAL_MARKER] = IntTag(len(new_lines))
                 new_lines.append(f"§7Stored Amount: §e{item_data.get('amount', 1)}")
                 
                 new_lore_tag = ListTag()
@@ -99,16 +166,7 @@ class BackpackManager:
                 
                 item.nbt = tag
             except Exception as e:
-                self.logger.error(f"Error setting visual lore via NBT: {e}")
-                # Fallback to standard meta just in case
-                meta = item.item_meta
-                if meta:
-                    lore = meta.lore if meta.has_lore else []
-                    # Clear existing amount info to avoid duplication
-                    lore = [line for line in lore if not line.startswith("§7Stored Amount:")]
-                    lore.append(f"§7Stored Amount: §e{item_data.get('amount', 1)}")
-                    meta.lore = lore
-                    item.set_item_meta(meta)
+                raise ValueError("Could not create storage display without changing item metadata") from e
         return item
 
     def items_are_equal(self, item1: Optional[ItemStack], item2: Optional[ItemStack]) -> bool:
@@ -162,7 +220,8 @@ class BackpackManager:
             
             # Find any existing consolidated stacks that are not full
             for cons_item in consolidated:
-                if cons_item.get("type") == item.get("type") and cons_item.get("nbt") == item.get("nbt"):
+                if (cons_item.get("type") == item.get("type") and cons_item.get("nbt") == item.get("nbt")
+                        and cons_item.get("data", 0) == item.get("data", 0)):
                     current = cons_item.get("amount", 0)
                     space = max_amount - current
                     if space > 0:
@@ -192,7 +251,7 @@ class BackpackManager:
                 item = inv.get_item(i)
                 if item:
                     tag = item.nbt
-                    if tag is not None and "display" in tag:
+                    if tag is not None and VISUAL_MARKER in tag and "display" in tag:
                         display_tag = tag["display"]
                         if isinstance(display_tag, CompoundTag) and "Lore" in display_tag:
                             lore_tag = display_tag["Lore"]
@@ -207,13 +266,16 @@ class BackpackManager:
                                     else:
                                         existing_lore_lines.append(str(child))
                                 
-                                is_visual = any("Stored Amount:" in line for line in existing_lore_lines)
+                                count = tag[VISUAL_MARKER].value
+                                is_visual = (len(existing_lore_lines) == count + 1
+                                             and existing_lore_lines[-1].startswith("§7Stored Amount: §e"))
                                 if is_visual:
-                                    new_lines = [line for line in existing_lore_lines if "Stored Amount:" not in line]
+                                    new_lines = existing_lore_lines[:count]
                                     new_lore_tag = ListTag()
                                     for line in new_lines:
                                         new_lore_tag.append(StringTag(line))
                                     display_tag["Lore"] = new_lore_tag
+                                    tag.pop(VISUAL_MARKER)
                                     item.nbt = tag
                                     inv.set_item(i, item)
         except Exception as e:
@@ -301,7 +363,7 @@ class BackpackManager:
                             menu.inventory.set_item(i, visual_item)
                 else:
                     # Type changed/swapped or quantity changed
-                    if str(gui_item.type) != cache_item.get("type"):
+                    if item_identity(deserialize_item(cache_item)) != item_identity(gui_item):
                         # Swapped items! Return the old virtual stack to the player
                         old_qty = cache_item.get("amount", 1)
                         old_item_example = deserialize_item(cache_item)
@@ -330,9 +392,8 @@ class BackpackManager:
                             new_qty = current_qty + delta
                             if new_qty > max_amount:
                                 excess = new_qty - max_amount
-                                give_back = ItemStack(str(gui_item.type), excess)
-                                if gui_item.nbt:
-                                    give_back.nbt = gui_item.nbt
+                                give_back = deserialize_item(cache_item)
+                                give_back.amount = excess
                                 leftovers = player.inventory.add_item(give_back)
                                 for leftover in leftovers.values():
                                     if leftover.amount > 0:
@@ -396,25 +457,22 @@ class BackpackManager:
 
     def populate_menu_page(self, menu: Menu, page: int, total_pages: int, contents: dict, storage_id: str = "") -> None:
         """Clear and populate slots for the given page index."""
+        start_idx = page * 45
+        supports_vs = self.supports_virtual_stacks(storage_id) if storage_id else False
+        decoded = {}
+        for i in range(45):
+            record = contents.get(str(start_idx + i))
+            if record is not None:
+                decoded[i] = self.create_visual_item(record) if supports_vs else deserialize_item(record)
+                if decoded[i] is None:
+                    raise ValueError(f"Could not restore backpack slot {start_idx + i}")
         # 1. Clear slots 0-44 (the storage slot region)
         for i in range(45):
             menu.inventory.set_item(i, None)
 
         # 2. Populate slots 0-44 with page items
-        start_idx = page * 45
-        supports_vs = self.supports_virtual_stacks(storage_id) if storage_id else False
-        for i in range(45):
-            db_slot_str = str(start_idx + i)
-            if db_slot_str in contents:
-                try:
-                    if supports_vs:
-                        item = self.create_visual_item(contents[db_slot_str])
-                    else:
-                        item = deserialize_item(contents[db_slot_str])
-                    if item:
-                        menu.inventory.set_item(i, item)
-                except Exception as e:
-                    self.logger.error(f"Failed to deserialize slot {db_slot_str}: {e}")
+        for i, item in decoded.items():
+            menu.inventory.set_item(i, item)
 
         # 3. Clear slots 45-53 (the navigation region)
         for slot in range(45, 54):
@@ -522,17 +580,20 @@ class BackpackManager:
     def save_current_page_to_cache(self, menu: Menu, page: int, contents_cache: dict) -> None:
         """Reads storage slots 0-44 from the GUI and writes them into the cache dictionary."""
         start_idx = page * 45
+        updated = dict(contents_cache)
         for i in range(45):
             db_slot_str = str(start_idx + i)
             item = menu.inventory.get_item(i)
             if item and str(item.type) != "minecraft:air":
                 serialized = serialize_item(item)
                 if serialized:
-                    contents_cache[db_slot_str] = serialized
+                    updated[db_slot_str] = serialized
                 else:
-                    contents_cache.pop(db_slot_str, None)
+                    updated.pop(db_slot_str, None)
             else:
-                contents_cache.pop(db_slot_str, None)
+                updated.pop(db_slot_str, None)
+        contents_cache.clear()
+        contents_cache.update(updated)
 
     def open_item_backpack(self, player: Player, backpack_id: str, bp_type: str, item_stack: Optional[ItemStack] = None) -> None:
         """Open an item-based backpack for a player with pagination support."""
@@ -590,6 +651,7 @@ class BackpackManager:
 
             if data:
                 contents = data.get("contents", {})
+                self.validate_saved_contents(contents)
                 owner_uuid = data.get("owner_uuid", player_uuid)
                 owner_name = data.get("owner_name", player_name)
                 # Use the active configured tier size to support upgrading/downgrading backpack items with the same ID
@@ -624,6 +686,7 @@ class BackpackManager:
                     pass
 
             menu = Menu(menu_type, custom_name)
+            self.active_menus[player_uuid] = menu
 
             # 4. Populate GUI slots
             supports_vs = self.supports_virtual_stacks(db_key)
@@ -642,6 +705,7 @@ class BackpackManager:
                                 menu.inventory.set_item(slot_idx, item)
                     except Exception as e:
                         self.logger.error(f"Failed to deserialize item at slot {slot_str}: {e}")
+                        raise
 
             # 5. Set Locks and Safety Flags
             self.active_item_sessions[backpack_id] = player_uuid
@@ -652,7 +716,14 @@ class BackpackManager:
             allow_nesting = self.config.rules.get("allow_backpack_nesting", False)
 
             def on_transaction(tr: MenuTransaction) -> MenuTransactionResult:
+                if not self.storage_available(db_key):
+                    return tr.discard()
                 if player_uuid in self.pending_page_changes:
+                    return tr.discard()
+                serialize_item(tr.item_clicked)
+                serialize_item(tr.item_clicked_with)
+                if self.supports_virtual_stacks(db_key) and different_storage_items(tr.item_clicked, tr.item_clicked_with):
+                    tr.player.send_message(f"{ColorFormat.RED}Items with different metadata need separate storage slots.")
                     return tr.discard()
                 clicked_id = get_backpack_id_from_item(tr.item_clicked)
                 clicked_with_id = get_backpack_id_from_item(tr.item_clicked_with)
@@ -684,10 +755,10 @@ class BackpackManager:
                         delay=1
                     )
 
-                if self.config.rules.get("save_after_each_transaction", False):
+                if self.supports_virtual_stacks(db_key):
                     self.plugin.server.scheduler.run_task(
                         self.plugin,
-                        lambda: self.save_backpack_contents(db_key, bp_type, size, owner_uuid, owner_name, menu, use_pagination, player_uuid),
+                        lambda: self.checkpoint(player, db_key, bp_type, size, owner_uuid, owner_name, menu, use_pagination),
                         delay=1
                     )
 
@@ -698,13 +769,16 @@ class BackpackManager:
                 if self.session_opened_successfully.get(closed_player_uuid, False):
                     if self.supports_virtual_stacks(db_key):
                         self.reconcile_virtual_stacks(closed_player, menu, db_key)
-                    self.save_backpack_contents(db_key, bp_type, size, owner_uuid, owner_name, menu, use_pagination, closed_player_uuid)
-                    self.logger.info(f"Backpack for {db_key} closed and saved.")
+                        self.clean_player_inventory(closed_player)
+                    self.checkpoint(closed_player, db_key, bp_type, size, owner_uuid, owner_name, menu, use_pagination)
                 self.active_item_sessions.pop(backpack_id, None)
                 self.clear_player_sessions(closed_player_uuid)
 
             menu.set_listener(on_transaction)
             menu.set_close_listener(on_close)
+
+            if not supports_vs:
+                menu.set_commit_listener(lambda p: self.checkpoint(p, db_key, bp_type, size, owner_uuid, owner_name, menu, use_pagination))
 
             # 7. Open Menu
             menu.send_to(player)
@@ -715,32 +789,41 @@ class BackpackManager:
 
     def save_backpack_contents(self, backpack_id: str, bp_type: str, size: int, owner_uuid: str, owner_name: str, menu: Menu, use_pagination: bool, player_uuid: str) -> None:
         """Combines current state and writes to SQLite."""
+        if player_uuid not in self.contents_caches:
+            return  # A delayed save cannot recreate a closed session as empty.
+        if player_uuid in self.active_menus and self.active_menus[player_uuid] is not menu:
+            return  # A delayed callback belongs to an older menu.
         if self.supports_virtual_stacks(backpack_id):
-            contents = self.contents_caches.get(player_uuid, {})
+            contents = dict(self.contents_caches[player_uuid])
         else:
             if use_pagination:
                 curr_page = self.active_pages.get(player_uuid, 0)
-                cache = self.contents_caches.get(player_uuid, {})
+                cache = dict(self.contents_caches[player_uuid])
                 # Save the currently viewed page items into the cache first
                 self.save_current_page_to_cache(menu, curr_page, cache)
                 contents = cache
             else:
-                contents = {}
+                # Retain items outside a temporarily reduced configured capacity.
+                contents = dict(self.contents_caches[player_uuid])
                 for slot in range(size):
-                    try:
-                        item = menu.inventory.get_item(slot)
-                        if item and str(item.type) != "minecraft:air":
-                            serialized = serialize_item(item)
-                            if serialized:
-                                contents[str(slot)] = serialized
-                    except Exception as e:
-                        self.logger.error(f"Error serializing slot {slot}: {e}")
+                    item = menu.inventory.get_item(slot)
+                    serialized = serialize_item(item)
+                    if serialized:
+                        contents[str(slot)] = serialized
+                    else:
+                        contents.pop(str(slot), None)
 
         # Write to SQLite
         try:
             self.db.save_item_backpack(backpack_id, bp_type, size, owner_uuid, owner_name, contents)
-        except Exception as e:
-            self.logger.error(f"Failed to write backpack {backpack_id} to DB: {e}")
+        except PendingSave:
+            self.contents_caches[player_uuid].clear()
+            self.contents_caches[player_uuid].update(contents)
+            raise
+        cache = self.contents_caches[player_uuid]
+        if cache is not contents:
+            cache.clear()
+            cache.update(contents)
 
     def clear_player_sessions(self, player_uuid: str) -> None:
         """Forcefully cleans up and saves sessions for a disconnecting player."""
@@ -753,6 +836,7 @@ class BackpackManager:
         self.active_pages.pop(player_uuid, None)
         self.contents_caches.pop(player_uuid, None)
         self.pending_page_changes.discard(player_uuid)
+        self.active_menus.pop(player_uuid, None)
 
     def open_block_storage(self, player: Player, location, tier_key: str) -> None:
         """Opens a virtual inventory menu for a block-based storage vault."""
@@ -815,6 +899,7 @@ class BackpackManager:
 
             if data:
                 contents = data.get("contents", {})
+                self.validate_saved_contents(contents)
                 owner_uuid = data.get("owner_uuid", player_uuid)
                 owner_name = data.get("owner_name", player_name)
             else:
@@ -831,6 +916,7 @@ class BackpackManager:
             # Menu UI initialization
             menu_type = MenuType.DOUBLE_CHEST if size > 27 else MenuType.CHEST
             menu = Menu(menu_type, display_name)
+            self.active_menus[player_uuid] = menu
 
             supports_vs = self.supports_virtual_stacks(block_key)
             if use_pagination:
@@ -848,6 +934,7 @@ class BackpackManager:
                                 menu.inventory.set_item(i, item)
                         except Exception as e:
                             self.logger.error(f"Failed to deserialize slot {db_slot_str}: {e}")
+                            raise
 
             # 4. Handle menu opening confirmation
             def on_open_task(_player):
@@ -858,7 +945,14 @@ class BackpackManager:
             # 5. UI interaction event hooks
             def on_transaction(tr: MenuTransaction) -> MenuTransactionResult:
                 # Safeguards
+                if not self.storage_available(block_key):
+                    return tr.discard()
                 if player_uuid in self.pending_page_changes:
+                    return tr.discard()
+                serialize_item(tr.item_clicked)
+                serialize_item(tr.item_clicked_with)
+                if self.supports_virtual_stacks(block_key) and different_storage_items(tr.item_clicked, tr.item_clicked_with):
+                    tr.player.send_message(f"{ColorFormat.RED}Items with different metadata need separate storage slots.")
                     return tr.discard()
                 allow_nesting = self.config.rules.get("allow_backpack_nesting", False)
                 clicked_with_id = get_backpack_id_from_item(tr.item_clicked_with)
@@ -889,12 +983,7 @@ class BackpackManager:
                     cursor_item = tr.item_clicked_with
                     
                     if tr.slot < storage_slots and gui_item is not None:
-                        is_visual = False
-                        if gui_item.item_meta and gui_item.item_meta.has_lore:
-                            for line in gui_item.item_meta.lore:
-                                if "Stored Amount:" in line:
-                                    is_visual = True
-                                    break
+                        is_visual = gui_item.nbt is not None and VISUAL_MARKER in gui_item.nbt
                         
                         if is_visual:
                             curr_page = self.active_pages.get(player_uuid, 0)
@@ -941,7 +1030,7 @@ class BackpackManager:
                                     # Save cache
                                     self.plugin.server.scheduler.run_task(
                                         self.plugin,
-                                        lambda: self.db.save_item_backpack(block_key, tier_key, size, owner_uuid, owner_name, cache),
+                                        lambda: self.checkpoint(player, block_key, tier_key, size, owner_uuid, owner_name, menu, use_pagination),
                                         delay=1
                                     )
                                     return tr.discard()
@@ -986,7 +1075,7 @@ class BackpackManager:
                                         # Save cache
                                         self.plugin.server.scheduler.run_task(
                                             self.plugin,
-                                            lambda: self.db.save_item_backpack(block_key, tier_key, size, owner_uuid, owner_name, cache),
+                                            lambda: self.checkpoint(player, block_key, tier_key, size, owner_uuid, owner_name, menu, use_pagination),
                                             delay=1
                                         )
                                         return tr.discard()
@@ -999,10 +1088,10 @@ class BackpackManager:
                         delay=1
                     )
 
-                if self.config.rules.get("save_after_each_transaction", False):
+                if self.supports_virtual_stacks(block_key):
                     self.plugin.server.scheduler.run_task(
                         self.plugin,
-                        lambda: self.save_backpack_contents(block_key, tier_key, size, owner_uuid, owner_name, menu, use_pagination, player_uuid),
+                        lambda: self.checkpoint(player, block_key, tier_key, size, owner_uuid, owner_name, menu, use_pagination),
                         delay=1
                     )
 
@@ -1014,13 +1103,15 @@ class BackpackManager:
                     if self.supports_virtual_stacks(block_key):
                         self.reconcile_virtual_stacks(closed_player, menu, block_key)
                         self.clean_player_inventory(closed_player)
-                    self.save_backpack_contents(block_key, tier_key, size, owner_uuid, owner_name, menu, use_pagination, closed_player_uuid)
-                    self.logger.info(f"Vault {block_key} closed and saved.")
+                    self.checkpoint(closed_player, block_key, tier_key, size, owner_uuid, owner_name, menu, use_pagination)
                 self.active_item_sessions.pop(block_key, None)
                 self.clear_player_sessions(closed_player_uuid)
 
             menu.set_listener(on_transaction)
             menu.set_close_listener(on_close)
+
+            if not supports_vs:
+                menu.set_commit_listener(lambda p: self.checkpoint(p, block_key, tier_key, size, owner_uuid, owner_name, menu, use_pagination))
 
             # 6. Open Menu
             menu.send_to(player)
