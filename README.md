@@ -1,3 +1,7 @@
+[Download compatibility release v1.0.95](https://github.com/TheNINJALLO/endstone-ninjos-backpacks/releases/tag/v1.0.95).
+
+> Compatibility update **1.0.95** targets **Endstone 0.11.16 / BDS 1.26.65.1**, protocol **2225**, Python **3.11+**. API level remains **0.11**. Keep configuration and player data when replacing the wheel. Earlier acceptance records below describe their original builds; current qualification is tracked in the workspace upgrade report.
+
 > Item-storage safety release **1.0.94**, Endstone **0.11.15 / BDS 1.26.60.6**. Install **InventoryUI 2.0.10** with this version. Full item NBT and auxiliary data are required; unreadable saved items block opening instead of being replaced with empty slots. Accepted ordinary backpack transactions checkpoint before acknowledgement. Failed primary saves remain in `backpacks.recovery.sqlite3` and pause moves until replay succeeds. Keep that journal with plugin data during backup/migration. Virtual-storage reconciliation checkpoints on the following tick.
 >
 > For cross-server backpacks, every server must use the **same Backpacks MySQL database**. Inventory Share alone carries the backpack item, not the separate Backpacks contents table. Do not point an existing installation at a new empty database as a recovery attempt. These changes do not reconstruct metadata or items already discarded by older saves.
@@ -13,9 +17,9 @@
 </p>
 
 <p align="center">
-  <img alt="Endstone 0.11.15" src="https://img.shields.io/badge/Endstone-0.11.12-52b7a8?style=flat-square">
+  <img alt="Endstone 0.11.16" src="https://img.shields.io/badge/Endstone-0.11.16-52b7a8?style=flat-square">
   <img alt="API 0.11" src="https://img.shields.io/badge/API-0.11-63b8ff?style=flat-square">
-  <img alt="BDS 1.26.60.6" src="https://img.shields.io/badge/BDS-1.26.60.6-8b7dff?style=flat-square">
+  <img alt="BDS 1.26.65.1" src="https://img.shields.io/badge/BDS-1.26.65.1-8b7dff?style=flat-square">
   <img alt="Python >=3.11" src="https://img.shields.io/badge/Python-%3E=3.11-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white">
 </p>
 
@@ -71,7 +75,7 @@ High-fidelity SQLite/MySQL-backed backpacks plugin utilizing endstone-inventoryu
 Download both required wheels over HTTPS:
 
 - [InventoryUI `v2.0.10`](https://github.com/TheNINJALLO/endstone-inventoryui/releases/download/v2.0.10/endstone_inventoryui-2.0.10-py3-none-any.whl)
-- [Ninjo's Backpacks `v1.0.94`](https://github.com/TheNINJALLO/endstone-ninjos-backpacks/releases/download/v1.0.94/endstone_ninjos_backpacks-1.0.94-py3-none-any.whl)
+- [Ninjo's Backpacks `v1.0.95`](https://github.com/TheNINJALLO/endstone-ninjos-backpacks/releases/download/v1.0.95/endstone_ninjos_backpacks-1.0.95-py3-none-any.whl)
 
 Copy the downloaded wheel into the server's `plugins/` directory, remove any older wheel for the same plugin, and restart Endstone.
 
